@@ -9,6 +9,19 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import time  # For handling retries
 
+
+
+# Define lists of colors and shapes in different languages
+list_of_colors = ['red', 'blue', 'green', 'yellow', 'orange', 'brown', 'black', 'white', 'purple', 'pink']
+list_of_colors_arabic = ['أحمر', 'أزرق', 'أخضر', 'أصفر', 'برتقالي', 'بني', 'أسود', 'أبيض', 'بنفسجي', 'وردي']
+list_of_colors_french = ['rouge', 'bleu', 'vert', 'jaune', 'orange', 'marron', 'noir', 'blanc', 'violet', 'rose']
+
+list_of_shapes = ['circle', 'square', 'rectangle', 'triangle', 'diamond', 'oval']
+list_of_shapes_arabic = ['دائرة', 'مربع', 'مستطيل', 'مثلث', 'معين', 'بيضوي']
+list_of_shapes_french = ['cercle', 'carré', 'rectangle', 'triangle', 'losange', 'ovale']
+
+
+
 # Load environment variables
 load_dotenv()
 
@@ -102,6 +115,42 @@ def speak():
         "status": "success",
         "message": response_message
     })
+
+
+
+@app.route('/get-colors', methods=['GET'])
+def get_colors():
+    language = request.args.get('language', 'English')  # Default to English if no language is provided
+    print(f"Received language: {language}")
+
+    if language == 'English':
+        colors = list_of_colors
+    elif language == 'Arabic':
+        colors = list_of_colors_arabic
+    elif language == 'French':
+        colors = list_of_colors_french
+    else:
+        return jsonify({"error": "Language not supported"}), 400
+    
+    return jsonify({"colors": colors})
+
+@app.route('/get-shapes', methods=['GET'])
+def get_shapes():
+    language = request.args.get('language', 'English')  # Default to English if no language is provided
+    
+    if language == 'English':
+        shapes = list_of_shapes
+    elif language == 'Arabic':
+        shapes = list_of_shapes_arabic
+    elif language == 'French':
+        shapes = list_of_shapes_french
+    else:
+        return jsonify({"error": "Language not supported"}), 400
+    
+    return jsonify({"shapes": shapes})
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
