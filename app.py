@@ -3,10 +3,11 @@ import logging
 import os
 from transformers import pipeline
 from PIL import Image
-import io  # Added for handling byte streams
-from openai import OpenAI
+import io  # For handling byte streams
+import openai  # Import openai directly
 from flask_cors import CORS
 from dotenv import load_dotenv
+import time  # For handling retries
 
 # Load environment variables
 load_dotenv()
@@ -23,10 +24,7 @@ logger = logging.getLogger(__name__)
 api_key = os.getenv('API_KEY')
 
 # Initialize OpenAI client
-client = OpenAI(
-    api_key=api_key,
-    base_url="https://api.aimlapi.com",  # Ensure this is the correct base URL for your API
-)
+openai.api_key = api_key  # Set the API key for the openai module
 
 # Load the CLIP image classification pipeline
 image_classifier = pipeline("zero-shot-image-classification", model="openai/clip-vit-base-patch32")
@@ -36,6 +34,15 @@ def classify_image(image, labels):
     results = image_classifier(images=image, candidate_labels=labels)
     predicted_label = results[0]['label']
     return predicted_label
+
+# Function to generate an image based on the incorrect classification
+def generate_image(prompt):
+    response = openai.Image.create(
+        prompt=f"view a {prompt}",
+        n=1,
+        size="1024x1024"
+    )
+    return response['data'][0]['url']
 
 @app.route('/classify-image', methods=['POST'])
 def classify_image_route():
@@ -68,12 +75,22 @@ def classify_image_route():
     predicted_label = classify_image(image, labels)
 
     if predicted_label:
-        return jsonify({
-            "predicted_label": predicted_label
-        })
+        # Check if the classification matches the expected input (modify 'expected_color_or_shape' as needed)
+        if predicted_label.lower() == "expected_color_or_shape":  # Replace with the actual expected label
+            return jsonify({
+                "predicted_label": predicted_label,
+                "message": "Correct classification"
+            })
+        else:
+            # Generate a new image if classification is incorrect
+            generated_image_url = generate_image(predicted_label)
+            return jsonify({
+                "predicted_label": predicted_label,
+                "message": "Incorrect classification, generating a new image",
+                "generated_image_url": generated_image_url
+            })
     else:
         return jsonify({"error": "No valid color or shape detected."}), 400
-
 
 @app.route('/speak', methods=['GET'])
 def speak():
