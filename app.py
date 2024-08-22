@@ -3,7 +3,7 @@ import logging
 import os
 from transformers import pipeline
 from PIL import Image
-import re
+import io  # Added for handling byte streams
 from openai import OpenAI
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -39,12 +39,17 @@ def classify_image(image, labels):
 
 @app.route('/classify-image', methods=['POST'])
 def classify_image_route():
-    data = request.json
-    language = data.get('language')  # Use get() to safely access the key
-    option = data.get('option')      # Use get() to safely access the key
+    # Check if an image file is included in the request
+    if 'image' not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
 
-    # Load the image directly from a file (since it's static)
-    image = Image.open(r'C:/Users/musta/backend_project/colorcircle.png') 
+    file = request.files['image']
+    language = request.form.get('language', 'English')
+    option = request.form.get('option', 'Colors')
+
+    # Read the image file from the request
+    image_bytes = file.read()
+    image = Image.open(io.BytesIO(image_bytes))
 
     # Define lists of colors and shapes in different languages
     list_of_colors = ['red', 'blue', 'green', 'yellow', 'orange', 'brown', 'black', 'white', 'purple', 'pink']
