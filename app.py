@@ -3,11 +3,17 @@ import logging
 import os
 from transformers import pipeline
 from PIL import Image
-import io  # For handling byte streams
 import openai  # Import openai directly
 from flask_cors import CORS
 from dotenv import load_dotenv
-import time  # For handling retries
+import time
+from werkzeug.utils import secure_filename
+import sqlite3 
+from pathlib import Path
+from gtts import gTTS
+from flask import send_file
+
+
 
 
 
@@ -33,11 +39,51 @@ CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+openai_llama_client = openai
+
 # Access the API key from environment variables
 api_key = os.getenv('API_KEY')
 
+API_KEY1 =os.getenv('API_KEY1')
+
+openai_llama_client.api_key = API_KEY1
+
+
+
 # Initialize OpenAI client
 openai.api_key = api_key  # Set the API key for the openai module
+
+
+
+app = Flask(__name__)
+
+
+# Define the path for storing speech files
+def get_speech_file_path(filename="speech.mp3"):
+    return Path(__file__).parent / filename
+
+# Function to generate speech from text
+def generate_speech(text, filename="speech.mp3"):
+    tts = gTTS(text=text, lang='en')
+    speech_file_path = get_speech_file_path(filename)
+    tts.save(speech_file_path)
+    return speech_file_path
+
+# Function to transcribe audio using OpenAI Whisper model
+def transcribe_audio(file):
+    try:
+        response = openai.Audio.transcribe(
+            model="whisper-1",
+            file=file,
+        )
+        return response['text']
+    except Exception as e:
+        return str(e), 400
+
+# Function to save transcription to a text file
+def save_transcription_to_file(transcription_text):
+    with open('transcriptions.txt', 'a') as f:
+        f.write(transcription_text + '\n')
 
 # Load the CLIP image classification pipeline
 image_classifier = pipeline("zero-shot-image-classification", model="openai/clip-vit-base-patch32")
@@ -50,26 +96,23 @@ def classify_image(image, labels):
 
 # Function to generate an image based on the incorrect classification
 def generate_image(prompt):
-    response = openai.Image.create(
+    response = openai.images.generate(
+        model="dall-e-3",
         prompt=f"view a {prompt}",
         n=1,
         size="1024x1024"
     )
-    return response['data'][0]['url']
+    return response.data[0].url
 
+#Image classification api
 @app.route('/classify-image', methods=['POST'])
 def classify_image_route():
-    # Check if an image file is included in the request
-    if 'image' not in request.files:
-        return jsonify({"error": "No image file provided"}), 400
+    data = request.json
+    language = data.get('language')  # Use get() to safely access the key
+    option = data.get('option')      # Use get() to safely access the key
 
-    file = request.files['image']
-    language = request.form.get('language', 'English')
-    option = request.form.get('option', 'Colors')
-
-    # Read the image file from the request
-    image_bytes = file.read()
-    image = Image.open(io.BytesIO(image_bytes))
+    # Load the image directly from a file (since it's static)
+    image = Image.open(r'C:/Users/musta/backend_project/image.png') 
 
     # Define lists of colors and shapes in different languages
     list_of_colors = ['red', 'blue', 'green', 'yellow', 'orange', 'brown', 'black', 'white', 'purple', 'pink']
@@ -88,7 +131,7 @@ def classify_image_route():
     predicted_label = classify_image(image, labels)
 
     if predicted_label:
-        # Check if the classification matches the expected input (modify 'expected_color_or_shape' as needed)
+        # Check if the classification matches the input
         if predicted_label.lower() == "expected_color_or_shape":  # Replace with the actual expected label
             return jsonify({
                 "predicted_label": predicted_label,
@@ -115,7 +158,6 @@ def speak():
         "status": "success",
         "message": response_message
     })
-
 
 
 @app.route('/get-colors', methods=['GET'])
@@ -149,8 +191,36 @@ def get_shapes():
     
     return jsonify({"shapes": shapes})
 
+def save_transcription_to_file(transcription_text):
+    with open('transcriptions.txt', 'a') as f:
+        f.write(transcription_text + '\n')
 
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
 
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
 
+    if file:
+        try:
+            transcription_text = transcribe_audio(file)
+            
+            if isinstance(transcription_text, tuple):
+                return jsonify({"error": transcription_text[0]}), transcription_text[1]
+            
+            # Save the transcription to the file instead of the database
+            save_transcription_to_file(transcription_text)
+            
+            return jsonify({"transcription": transcription_text})
+        
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    return jsonify({"error": "File upload failed"}), 400
+
+    
 if __name__ == '__main__':
     app.run(debug=True)
