@@ -105,14 +105,23 @@ def generate_image(prompt):
     return response.data[0].url
 
 #Image classification api
+
+# Image classification API
 @app.route('/classify-image', methods=['POST'])
 def classify_image_route():
     data = request.json
-    language = data.get('language')  # Use get() to safely access the key
-    option = data.get('option')      # Use get() to safely access the key
+    language = data.get('language')
+    option = data.get('option')
+    image_data = data.get('image_data')  # Image data sent as base64
 
-    # Load the image directly from a file (since it's static)
-    image = Image.open(r'C:/Users/musta/backend_project/image.png') 
+    if not image_data:
+        return jsonify({"error": "No image data provided"}), 400
+
+    # Decode the Base64 image data
+    try:
+        image = Image.open(io.BytesIO(base64.b64decode(image_data)))
+    except Exception as e:
+        return jsonify({"error": f"Failed to decode image: {str(e)}"}), 400
 
     # Define lists of colors and shapes in different languages
     list_of_colors = ['red', 'blue', 'green', 'yellow', 'orange', 'brown', 'black', 'white', 'purple', 'pink']
