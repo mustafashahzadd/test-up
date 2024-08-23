@@ -12,7 +12,7 @@ import sqlite3
 from pathlib import Path
 from gtts import gTTS
 from flask import send_file
-
+import random
 
 
 
@@ -183,7 +183,12 @@ def get_colors():
     else:
         return jsonify({"error": "Language not supported"}), 400
     
-    return jsonify({"colors": colors})
+    # Predict a random color
+    predicted_label = random.choice(colors)
+    
+    return jsonify({
+        "predicted_label": predicted_label
+    })
 
 @app.route('/get-shapes', methods=['GET'])
 def get_shapes():
@@ -198,8 +203,13 @@ def get_shapes():
     else:
         return jsonify({"error": "Language not supported"}), 400
     
-    return jsonify({"shapes": shapes})
-
+    # Predict a random shape
+    predicted_label = random.choice(shapes)
+    
+    return jsonify({
+        "predicted_label": predicted_label
+    })
+    
 def save_transcription_to_file(transcription_text):
     with open('transcriptions.txt', 'a') as f:
         f.write(transcription_text + '\n')
