@@ -230,6 +230,23 @@ def transcribe():
 
     return jsonify({"error": "File upload failed"}), 400
 
+
+@app.route('/generate-speech', methods=['POST'])
+def generate_speech_route():
+    data = request.get_json()
+
+    # Validate input
+    if 'text' not in data:
+        return jsonify({"error": "No text provided"}), 400
+
+    text = data['text']
+
+    try:
+        speech_file_path = generate_speech(text)
+        return send_file(speech_file_path, mimetype='audio/mp3')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     
 if __name__ == '__main__':
     app.run(debug=True)
